@@ -1,1 +1,8 @@
+update v1.1 12/10/2023
+
+- path / file was seriously flawed is re-written
+- fixed checkpath did not set correct path after
+  exiting if path is correct
+- added notification file count for extracting and archiving
+
 public release v1.0 11/10/2023

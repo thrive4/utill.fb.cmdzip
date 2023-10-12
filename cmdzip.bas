@@ -15,6 +15,7 @@
 #else
     const pathchar = "\"
 #endif
+dim shared cnt as integer = 0
 
 ' date and time routines
 ' get and convert unixtime aka epoch(1970)
@@ -119,7 +120,10 @@ Private Sub unpack_zip_file(ByVal zip As zip_t Ptr, path as string, ByVal i As I
     Dim As String filename = *zip_get_name(zip, i, 0)
     ' brute force the path reconstruction if needed
     filename = replace(filename, "/", pathchar)
-
+    ' filter out drive if needed
+    if instr(filename, ":") > 0 and len(filename) > 3 then
+        filename = right(filename, len(filename) - 3)
+    end if
     ' Retrieve the file size via a zip_stat().
     Dim As zip_stat stat
     If (zip_stat_index(zip, i, 0, @stat)) Then
@@ -174,6 +178,7 @@ Private Sub unpack_zip_file(ByVal zip As zip_t Ptr, path as string, ByVal i As I
     if withdate then
         setdatetimefile(path + "\" + filename, unixtime2date(stat.mtime))
     end if
+    cnt += 1
 End Sub
 
 Sub unpack_zip(ByRef archive As String, path as string, withdate as boolean = true)
@@ -258,16 +263,15 @@ end sub
 function dir2zip(root as string, withpath as boolean = false, withdate as boolean = true) as boolean
     ' init recursive dir routine
     dim file           as string
-    dim fileext        as string
+    dim fileext        as string = "*"
+    dim filterext      as string     
     dim fsize          as long
     dim fdate          as string
     dim fattr          as string
     dim dummy          as string
     redim p(1 to 1)    As string
     dim as integer j = 1, n = 1, attrib
-
     ' recursive scan folder(s) for filepattern
-print mid(root, 1, instrrev(root, "\"))
     p(1) = mid(root, 1, instrrev(root, "\"))   ' init tree
     if( right( p(1), 1 ) <> pathchar ) then
         file = dir(p(1), fbNormal or fbDirectory, @attrib)
@@ -275,9 +279,14 @@ print mid(root, 1, instrrev(root, "\"))
             p(1) += pathchar
         end if
     end if
-
+    if instr(root, "*.") = 0 and instr(root, ".") > 0 then
+        filterext = mid(root, instrrev(root, "\") + 1)
+    end if    
+    if instr(root, "*.") > 0 then
+        filterext = mid(root, instrrev(root, "\") + 1)
+    end if
     while j <= n
-        file = dir(p(j) + "*" , fbNormal or fbDirectory, @attrib)
+        file = dir(p(j) + "*", fbNormal or fbDirectory, @attrib)
         while file > ""
             if (attrib and fbDirectory) then
                 if file <> "." and file <> ".." then
@@ -286,17 +295,21 @@ print mid(root, 1, instrrev(root, "\"))
                     p(n) = p(j) + file + pathchar
                 end if
             else
-                ' get specific file information
-                dummy = mid(p(j), 1, instrrev(p(j), "\"))
-                fsize = filelen(dummy & file)
-                fdate = Format(FileDateTime(dummy & file), "yyyy-mm-dd hh:mm:ss" )
-                If (attrib And fbReadOnly) <> 0 Then fattr = "read-only"
-                If (attrib And fbHidden  ) <> 0 Then fattr = "hidden"
-                If (attrib And fbSystem  ) <> 0 Then fattr = "system"
-                If (attrib And fbArchive ) <> 0 Then fattr = "archived"
-                'print mid(p(j), 1, instrrev(p(j), "\")) & d
-                file2zip(command(2), dummy & file, withpath, withdate)
-                print dummy & file & "," & fsize & "," & fdate & "," & fattr
+                fileext = lcase(mid(file, instrrev(file, ".")))
+                if instr(1, filterext, fileext) > 0 and len(fileext) > 3 then
+                    ' get specific file information
+                    dummy = mid(p(j), 1, instrrev(p(j), "\"))
+                    fsize = filelen(dummy & file)
+                    fdate = Format(FileDateTime(dummy & file), "yyyy-mm-dd hh:mm:ss" )
+                    If (attrib And fbReadOnly) <> 0 Then fattr = "read-only"
+                    If (attrib And fbHidden  ) <> 0 Then fattr = "hidden"
+                    If (attrib And fbSystem  ) <> 0 Then fattr = "system"
+                    If (attrib And fbArchive ) <> 0 Then fattr = "archived"
+                    'print mid(p(j), 1, instrrev(p(j), "\")) & d
+                    file2zip(command(2), dummy & file, withpath, withdate)
+                    print dummy & file & "," & fsize & "," & fdate & "," & fattr
+                    cnt += 1
+                end if
             end if
             file = dir(@attrib)
         wend
@@ -309,15 +322,16 @@ end function
 ' end zip routines
 
 ' main
-' init app overwrite by commandline or config file
 dim itm          as string
 dim inikey       as string
 dim inival       as string
 dim inifile      as string = exepath + "\conf\" + "conf.ini"
+dim dummy        as string
 dim f            as integer
 dim preservepath as boolean
 dim preservedate as boolean
 
+' init app overwrite by commandline or config file
 if FileExists(inifile) = false then
     logentry("error", inifile + "file does not excist")
 else 
@@ -348,7 +362,7 @@ end if
 select case true
     case len(command(1)) = 0
         displayhelp(locale)
-        logentry("terminate", "normal temination ")
+        logentry("terminate", "normal termination ")
 end select
 
 ' parse if commandline options are present
@@ -359,14 +373,14 @@ while i < __FB_ARGC__
             select case command(i)
                 case "-h", "-help", "--help", "-man"
                     displayhelp(locale)
-                    logentry("terminate", "normal temination ")
+                    logentry("terminate", "normal termination ")
                 case "-v", "-ver"
                     print appname + " version " + exeversion
                     ' todo odd jumps to line 472 and resumes execution disregarding end
-                    logentry("terminate", "normal temination ")
+                    logentry("terminate", "normal termination ")
                 case "-t"
                     text2zip("teststring.zip", "file3.txt", "Sic Parvis Magna ~ Thus, Great Things From Small Things Come...",)
-                    logentry("terminate", "normal temination ")
+                    logentry("terminate", "normal termination ")
                 case "-pp"
                     ' nop
                 case else 
@@ -376,7 +390,7 @@ while i < __FB_ARGC__
             select case command(i)
                 case "/?"
                     displayhelp(locale)
-                    logentry("terminate", "normal temination ")
+                    logentry("terminate", "normal termination ")
                 case else
                     logentry("fatal", "invalid switch '" & command(i) & "'")
             end select
@@ -384,28 +398,41 @@ while i < __FB_ARGC__
     select case i
         case 1
             select case true
+                ' extract from archive
                 case instr(command(1), ".zip") > 0
                     if FileExists(command(1)) then
                         ' nop
                     else
-                        logentry("fatal", "please specify a valid file.. '" & command(i) & "'")
+                        logentry("fatal", "please specify a valid archive name.. '" & command(i) & "'")
                     end if
                     if command(2) = "" then
                         logentry("fatal", "please specify export folder.. '" & command(i) & "'")
                     end if
                     print "extracting..."
                     unpack_zip(command(1), command(2), preservedate)
-                case instr(command(1), ":") > 0
+                    print
+                    print cnt & " file(s) extracted from " & command(2)
+                ' add to archive
+                case instr(command(1), ".") > 0
                     if checkpath(mid(command(1), 1, instrrev(command(1), "\"))) = false then
                         logentry("fatal", "please specify a valid path.. '" & command(i) & "'")
-                    end if            
+                    end if              
                     if instr(command(1), "*.") = 0 then
-                        if FileExists(command(1)) then
-                            ' nop
+                        if instr(command(1), ":") = 0 then
+                            if FileExists(curdir + "\" + command(1)) then
+                                ' nop
+                            else
+                                logentry("fatal", "please specify a valid file.. '" & command(i) & "'")
+                            end if
                         else
-                            logentry("fatal", "please specify a valid file.. '" & command(i) & "'")
+                            if FileExists(command(1)) then
+                                ' nop
+                            else
+                                logentry("fatal", "please specify a valid file.. '" & command(i) & "'")
+                            end if
                         end if
                     end if
+                    ' multiple files
                     if instr(command(1), "*.") > 0 then
                         if len(command(2)) = 0 then
                             logentry("fatal", "please specify an archive name.. '" & command(i) & "'")
@@ -415,18 +442,28 @@ while i < __FB_ARGC__
                         end if
                         print "adding..."
                         dir2zip(command(1), preservepath, preservedate)
+                        print
+                        print cnt & " file(s) added to " & command(2)
                         logentry("terminate", "normal termination")                        
                     end if
+                    ' single file
                     if len(command(2)) = 0 then
                         logentry("fatal", "please specify an archive name.. '" & command(i) & "'")
-                    end if
-                case instr(command(1), "*.") > 0
+                    else
                         if instr(command(3), "-p") > 0 then
                             preservepath = true
                         end if
                         print "adding..."
-                        dir2zip(curdir + "\" + command(1), preservepath, preservedate)
-                    logentry("terminate", "normal termination")                        
+                        if instr(command(1), ":") > 0 then
+                            dummy = command(1)
+                        else
+                            dummy = curdir + "\" + command(1)
+                        end if
+                        dir2zip(dummy, preservepath, preservedate)
+                        print
+                        print cnt & " file(s) added to " & command(2)
+                        logentry("terminate", "normal termination")                        
+                    end if
             end select
     end select
     i += 1

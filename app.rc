@@ -29,13 +29,13 @@ BEGIN
             VALUE "Comments", "needs libzip 1.10.1 and up"
             VALUE "CompanyName", "thrive4"
             VALUE "FileDescription", "zip command line util"
-            VALUE "FileVersion", "1, 0, 0, 000"
-            VALUE "InternalName", ""
+            VALUE "FileVersion", "1, 1, 0, 000"
+            VALUE "InternalName", "build 12-10-2023"
             VALUE "LegalCopyright", ""
             VALUE "OriginalFilename", "cmdzip"
             VALUE "PrivateBuild", ""
             VALUE "ProductName", "cmdzip"
-            VALUE "ProductVersion", "1, 0, 0, 0"
+            VALUE "ProductVersion", "1, 1, 0, 0"
         END
     END
     BLOCK "VarFileInfo"

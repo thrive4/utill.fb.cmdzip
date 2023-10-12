@@ -298,6 +298,7 @@ Function checkpath(chkpath As String) As boolean
         return false
     end if
 
+    chdir(dummy)
     return true
 
 End Function
